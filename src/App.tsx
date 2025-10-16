@@ -3,7 +3,7 @@ import AdminPuntajes from "./components/AdminPuntajes";
 import Reuniones from "./components/Reuniones";
 import Dashboard from "./components/Dashboard";
 // Si no existe aún, creamos un placeholder de ReporteMisionero en /src/pages
-import ReporteMisionero from "./components/ReporteMisionero";
+import ReporteMisionero from "./pages/ReporteMisionero";
 
 export default function App() {
   return (

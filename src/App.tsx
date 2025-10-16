@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import AdminPuntajes from "./components/AdminPuntajes";
 import Reuniones from "./components/Reuniones";
 import Dashboard from "./components/Dashboard";
+// Si no existe aún, creamos un placeholder de ReporteMisionero en /src/pages
 import ReporteMisionero from "./components/ReporteMisionero";
 
 export default function App() {

@@ -13,10 +13,8 @@
     "strict": true,
     "esModuleInterop": true,
     "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    },
-    "types": ["vite/client"]
+    "paths": { "@/*": ["src/*"]},
+    "types": ["vite/client"],
   },
   "include": ["src"]
 }

@@ -1,7 +1,15 @@
 // @ts-nocheck
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
-export default function QrScanner({ onDecode, onClose }) {
+type QrScannerProps = {
+  onDecode?: (value: string) => void;
+  onClose?: () => void;
+};
+
+export default function QrScanner({
+  onDecode = () => {},
+  onClose = () => {},
+}: QrScannerProps) {
   const videoRef = useRef(null);
   const rafRef = useRef(null);
   const streamRef = useRef(null);
@@ -32,13 +40,34 @@ export default function QrScanner({ onDecode, onClose }) {
     } catch {}
   }, [deviceId]);
 
+  const cleanup = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    if (videoRef.current) {
+      try {
+        videoRef.current.pause();
+      } catch {}
+      videoRef.current.srcObject = null;
+    }
+    if (streamRef.current) {
+      try {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+      } catch {}
+      streamRef.current = null;
+    }
+  }, []);
+
   const start = useCallback(async () => {
     if (isStarting) return;
     setIsStarting(true);
     setErr("");
     try {
       const constraints = {
-        video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: { ideal: "environment" } },
+        video: deviceId
+          ? { deviceId: { exact: deviceId } }
+          : { facingMode: { ideal: "environment" } },
         audio: false,
       };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -55,7 +84,11 @@ export default function QrScanner({ onDecode, onClose }) {
         const bd = new window.BarcodeDetector({ formats: ["qr_code"] });
         const tick = async () => {
           try {
-            if (videoRef.current && !videoRef.current.paused && !videoRef.current.ended) {
+            if (
+              videoRef.current &&
+              !videoRef.current.paused &&
+              !videoRef.current.ended
+            ) {
               const now = performance.now();
               if (now - lastDecodeAtRef.current > 160) {
                 lastDecodeAtRef.current = now;
@@ -81,24 +114,25 @@ export default function QrScanner({ onDecode, onClose }) {
     }
   }, [deviceId, listCameras, onDecode, supported, isStarting]);
 
-  const cleanup = useCallback(() => {
-    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
-    if (videoRef.current) { try { videoRef.current.pause(); } catch {} videoRef.current.srcObject = null; }
-    if (streamRef.current) {
-      try { streamRef.current.getTracks().forEach((t) => t.stop()); } catch {}
-      streamRef.current = null;
-    }
-  }, []);
+  const switchDevice = useCallback(
+    async (id) => {
+      setDeviceId(id);
+      cleanup();
+      await start();
+    },
+    [cleanup, start]
+  );
 
-  const switchDevice = useCallback(async (id) => {
-    setDeviceId(id);
+  useEffect(() => {
+    start();
+    return () => cleanup();
+  }, [deviceId]);
+
+  const handleClose = () => {
     cleanup();
-    await start();
-  }, [cleanup, start]);
+    onClose();
+  };
 
-  useEffect(() => { start(); return () => cleanup(); }, [deviceId]);
-
-  const handleClose = () => { cleanup(); onClose(); };
   const handleManual = () => {
     const v = (manual || "").trim();
     if (!v) return;
@@ -111,13 +145,22 @@ export default function QrScanner({ onDecode, onClose }) {
       <div className="bg-white rounded-2xl p-4 w-[95%] max-w-md space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">Escanear QR</h3>
-          <button onClick={handleClose} className="px-3 py-1 rounded-lg bg-slate-200">Cerrar</button>
+          <button
+            onClick={handleClose}
+            className="px-3 py-1 rounded-lg bg-slate-200"
+          >
+            Cerrar
+          </button>
         </div>
 
         {devices.length > 1 && (
           <div className="flex items-center gap-2">
             <label className="text-sm text-slate-600">Cámara</label>
-            <select className="border rounded-lg px-3 py-2 bg-white flex-1" value={deviceId || ""} onChange={(e) => switchDevice(e.target.value)}>
+            <select
+              className="border rounded-lg px-3 py-2 bg-white flex-1"
+              value={deviceId || ""}
+              onChange={(e) => switchDevice(e.target.value)}
+            >
               {devices.map((d, idx) => (
                 <option key={d.deviceId || idx} value={d.deviceId}>
                   {d.label || `Cámara ${idx + 1}`}
@@ -131,17 +174,35 @@ export default function QrScanner({ onDecode, onClose }) {
           <video ref={videoRef} className="w-full h-full object-cover" />
         </div>
 
-        {isStarting && <div className="text-xs text-slate-500">Iniciando cámara…</div>}
+        {isStarting && (
+          <div className="text-xs text-slate-500">Iniciando cámara…</div>
+        )}
         {err && <div className="text-rose-700 text-sm">{err}</div>}
-        {!supported && <div className="text-sm text-slate-600">Tu navegador no soporta <code>BarcodeDetector</code>. Usá el ingreso manual.</div>}
+        {!supported && (
+          <div className="text-sm text-slate-600">
+            Tu navegador no soporta <code>BarcodeDetector</code>. Usá el ingreso
+            manual.
+          </div>
+        )}
 
         <div className="flex gap-2 items-center">
-          <input value={manual} onChange={(e) => setManual(e.target.value)} placeholder='Pegar UUID, "MIS:<uuid>" o JSON {"mid":"uuid"}' className="flex-1 border rounded-lg px-3 py-2" />
-          <button onClick={handleManual} className="px-3 py-2 rounded-lg bg-indigo-600 text-white">Marcar</button>
+          <input
+            value={manual}
+            onChange={(e) => setManual(e.target.value)}
+            placeholder='Pegar UUID, "MIS:<uuid>" o JSON {"mid":"uuid"}'
+            className="flex-1 border rounded-lg px-3 py-2"
+          />
+          <button
+            onClick={handleManual}
+            className="px-3 py-2 rounded-lg bg-indigo-600 text-white"
+          >
+            Marcar
+          </button>
         </div>
 
         <div className="text-xs text-slate-500">
-          Consejos: concedé permisos de cámara, probá con otra cámara si está desenfocada y asegurate de estar en <b>https</b> (o <b>localhost</b>).
+          Consejos: concedé permisos de cámara, probá con otra cámara si está
+          desenfocada y asegurate de estar en <b>https</b> (o <b>localhost</b>).
         </div>
       </div>
     </div>
